@@ -1,0 +1,57 @@
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: health-database
+    environment:
+      POSTGRES_DB: health_db
+      POSTGRES_USER: health_admin
+      POSTGRES_PASSWORD: health123
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - health-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U health_admin -d health_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  collector:
+    build:
+      context: ./collector
+      dockerfile: Dockerfile
+    container_name: health-collector
+    environment:
+      DB_HOST: db
+      DB_NAME: health_db
+      DB_USER: health_admin
+      DB_PASSWORD: health123
+      DB_PORT: 5432
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - health-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: health-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - health-network
+    restart: unless-stopped
+
+networks:
+  health-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  grafana-data:
